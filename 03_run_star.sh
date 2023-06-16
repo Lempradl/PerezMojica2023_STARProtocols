@@ -2,32 +2,23 @@
 
 set -euo pipefail
 
-STAR \
-    --runThreadN 16 \
-    --limitBAMsortRAM 137438953472 \
-    --genomeDir ./dm6_star_index/ \
-    --readFilesIn SRR21697059_2.fastq.gz SRR21697059_1.fastq.gz \
-    --outSAMattributes NH HI AS nM CB UB \
-    --readFilesCommand zcat  \
-    --outSAMtype BAM SortedByCoordinate \
-    --outFileNamePrefix STARsolo_out/sample1. \
-    --soloType CB_UMI_Simple \
-    --soloCBwhitelist celseq_barcodes.192.1col.txt \
-    --soloUMIstart 1 --soloUMIlen 6 --soloCBstart 7 \
-    --soloCBlen 6 --soloBarcodeReadLength 0 --soloCBmatchWLtype Exact \
-    --soloStrand Forward --soloUMIdedup Exact
+sample=$1
+fq1=$2
+fq2=$3
+threads=$4
 
 STAR \
-    --runThreadN 16 \
+    --runThreadN $threads \
     --limitBAMsortRAM 137438953472 \
     --genomeDir ./dm6_star_index/ \
-    --readFilesIn SRR21697060_2.fastq.gz SRR21697060_1.fastq.gz \
+    --readFilesIn $fq2 $fq1 \
     --outSAMattributes NH HI AS nM CB UB \
     --readFilesCommand zcat  \
     --outSAMtype BAM SortedByCoordinate \
-    --outFileNamePrefix STARsolo_out/sample2. \
+    --outFileNamePrefix "STARsolo_out/${sample}." \
     --soloType CB_UMI_Simple \
     --soloCBwhitelist celseq_barcodes.192.1col.txt \
     --soloUMIstart 1 --soloUMIlen 6 --soloCBstart 7 \
     --soloCBlen 6 --soloBarcodeReadLength 0 --soloCBmatchWLtype Exact \
-    --soloStrand Forward --soloUMIdedup Exact
+    --soloStrand Forward --soloUMIdedup Exact 1> "star_${sample}.o" 2> "star_${sample}.e"
+

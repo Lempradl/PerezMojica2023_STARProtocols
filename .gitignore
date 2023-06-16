@@ -7,3 +7,13 @@ SRR21697060_2.fastq.gz
 celseq_barcodes.192.1col.txt
 dm6_star_index
 ftp_links.txt
+star_samples.txt
+STARsolo_out/
+parallel_star.sh
+star_sample1.e
+star_sample1.o
+star_sample2.e
+star_sample2.o
+celseq_barcodes.192.txt
+sample1_counts.tsv
+sample2_counts.tsv
