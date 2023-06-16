@@ -17,7 +17,7 @@ starsolo_to_table <- function(starsolo_dir, decoder){
     colnames(counts) <- decoder$bc_num[match(colnames(counts), decoder$bc)]
 
     tibble::as_tibble(counts, rownames="Gene") %>%
-        dplyr::select(Gene, sort(colnames(counts)))
+        dplyr::select(Gene, as.character(sort(as.integer(colnames(counts)))))
 }
 
 for (i in 1:length(samples)){
