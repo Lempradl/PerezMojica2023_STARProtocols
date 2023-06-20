@@ -17,3 +17,5 @@ star_sample2.o
 celseq_barcodes.192.txt
 sample1_counts.tsv
 sample2_counts.tsv
+GSM6599295_Sample1.STARsolo_raw.counts.txt
+GSM6599296_Sample2.STARsolo_raw.counts.txt

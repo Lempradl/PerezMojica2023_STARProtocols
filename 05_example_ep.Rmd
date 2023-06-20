@@ -1,0 +1,168 @@
+---
+title: "Single-embryo RNA-sequencing for continuous and sex-specific gene expression analysis on Drosophila"
+author: "J. Eduardo Pérez-Mojica, Lennart Enders, Kin H. Lau, and Adelheid Lempradl"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+output:
+  pdf_document:
+    toc: true
+    toc_depth: 5
+    number_sections: true
+---
+
+```{r keep_figures, cache=TRUE}
+# this chunk is just to keep the _files directory even when we turn off cacheing
+```
+
+```{r starttime, echo=TRUE, warning=TRUE, message=TRUE, cache=FALSE, cache.lazy = FALSE}
+# save start time for script
+start_tm <- Sys.time()
+start_tm
+```
+
+```{r make_outdir, echo=TRUE, warning=TRUE, message=TRUE, cache=FALSE, cache.lazy = FALSE}
+outdir <- "./out_files/"
+
+dir.create(outdir, recursive=TRUE)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE, warning=TRUE, message=TRUE, cache=FALSE, cache.lazy = FALSE)
+
+```
+
+# Packages loaded
+
+```{r loadlibs, echo=TRUE, warning=TRUE, message=TRUE, cache=FALSE}
+library(RaceID)
+library(DESeq2)
+library(splineTimeR)
+```
+
+# Continuous transcriptome analysis part 1; Identification of unfertilized eggs and embryos older than 3 h
+
+```{r pseudotime_analysis1}
+library1 <-read.csv("GSM6599295_Sample1.STARsolo_raw.counts.txt", sep="\t", 
+                    header=TRUE, row.names = 1)
+library2 <-read.csv("GSM6599296_Sample2.STARsolo_raw.counts.txt", sep="\t", 
+                    header=TRUE, row.names = 1)
+data <- cbind(library1[,1:96], library2[,97:192])
+
+
+sc <- SCseq(data)
+sc <- filterdata(sc, minexpr = 3, minnumber = 5, LBatch = NULL, mintotal=250000)
+sc <- compdist(sc,metric="spearman", FSelect = FALSE,knn = NULL,alpha = 3)
+sc <- clustexp(sc, rseed = 12345, samp = 1000 , FUNcluster = "kmedoids")
+sc <- findoutliers(sc, probthr = 0.001, outlg = 3, outminc = 5)
+
+
+#pdf(file = "./out_files/01tsne_maps.pdf",width = 11, height = 7.5)
+sc <- comptsne(sc,perplexity = 16, rseed = 420)
+plotmap(sc,cex=3)
+plotexpmap(sc, g="scw", n="scw", logsc = TRUE, cex = 3) 
+plotexpmap(sc, g="sc",  n="sc",  logsc = TRUE, cex = 3) 
+plotexpmap(sc, g="esg", n="esg", logsc = TRUE, cex = 3)
+plotexpmap(sc, g="pnr", n="pnr", logsc = TRUE, cex = 3)
+plotexpmap(sc, g="ths", n="ths", logsc = TRUE, cex = 3) 
+plotexpmap(sc, g="tin", n="tin", logsc = TRUE, cex = 3)
+plotlabelsmap(sc, cex = 0.2)
+#dev.off()
+
+#pdf(file = "./out_files/02pnr_ths_tin.pdf",width = 11, height = 7.5)
+plotexpmap(sc, g=c("pnr","ths","tin"), n="pnr+ths+tin", logsc = FALSE, cex = 3)
+#dev.off()
+
+write.csv(sc@cpart, file = "./out_files/03sampleid_by_cluster.csv")
+
+
+```
+
+# Continuous transcriptome analysis part 2; Generation of a pseudo-time
+
+```{r pseudotime_analysis2}
+# The first 5 samples below are unfertilized eggs and the rest older embryos
+exclude <- c("X75","X132","X136","X141","X166","X1",
+              "X4","X9","X10","X25","X30","X31","X32",
+              "X46","X50","X51","X55","X72","X77","X80",
+              "X85","X94","X95","X102","X108","X124",
+              "X125","X127","X130","X153","X158","X171",
+              "185","X188")
+embryos_3h <- data[,!(names(data) %in% exclude)]
+sc <- SCseq(embryos_3h)
+sc <- filterdata(sc, minexpr = 3, minnumber = 5, LBatch = NULL, mintotal=250000)
+sc <- compdist(sc,metric="spearman", FSelect = FALSE,knn = NULL,alpha = 3)
+sc <- clustexp(sc, rseed = 12345, samp = 1000 , FUNcluster = "kmedoids")
+sc <- findoutliers(sc, probthr = 0.001, outlg = 3, outminc = 5)
+
+#pdf(file = "./out_files/04tsne_maps_3h_embryos.pdf",width = 11, height = 7.5)
+sc <- comptsne(sc,perplexity = 10, rseed = 420)
+plotmap(sc,cex=3)
+plotexpmap(sc, g=c("scw","sc","esg"), n="scw+sc+esg", logsc = TRUE, cex = 3)
+plotexpmap(sc, g=c("pnr","ths","tin"), n="pnr+ths+tin", logsc = TRUE, cex = 3)
+#dev.off()
+
+ltr <- Ltree(sc) 
+ltr <- compentropy(ltr)
+ltr <- projcells(ltr,cthr=2,nmode=T,knn=3)
+ltr <- lineagegraph(ltr)
+ltr <- comppvalue(ltr,pthr=0.05, sensitive = T) 
+
+#pdf(file = "./out_files/05intercluster_links.pdf", width = 11, height = 7.5)
+plotspantree(ltr,cex = 3, projections = T)
+#dev.off()
+
+n <- cellsfromtree(ltr,c(1,5,4,6,2,9,3,7))
+list_pseudotime <- row.names(as.data.frame(ltr@sc@cpart[n$f]))
+norm_counts <- as.matrix(getfdata(sc))
+norm_counts <- norm_counts[, list_pseudotime]
+write.csv(norm_counts, file = "./out_files/06normalized_counts_by_pseudotime.csv")
+```
+
+# Differential expression analysis between two clusters (RaceID & DESeq2)
+
+```{r differential_expression}
+A <- names(sc@cpart)[sc@cpart %in% c(1)]
+B <- names(sc@cpart)[sc@cpart %in% c(4)] 
+x <- diffexpnb(sc@expdata,n=c(A,B),DESeq = TRUE, A=A, B=B, method = "per-condition")
+plotdiffgenesnb(x,pthr=.05,lthr=,mthr=-1, Aname="Cluster1", Bname="Cluster4", 
+                show_names=TRUE, padj=TRUE, main="Clusters 1vs4")
+
+write.table(x$res, "./out_files/05results_1vs4.xls", col.names=TRUE, sep="\t", 
+            quote=FALSE)
+```
+
+# Sex-specific gene expression analysis (SplineTimeR)
+
+```{r sexspecific_expression}
+norm.counts <-read.csv("./out_files/06normalized_counts_by_pseudotime.csv", 
+                       sep=",", header=TRUE, row.names = 1) 
+m.data <- read.csv("metadata.csv", sep=",", header=TRUE)
+sample_list <- m.data[,1] 
+norm.counts <- norm.counts[,sample_list]
+row.names(m.data) <- m.data[,1]
+
+phenoData <- new("AnnotatedDataFrame", data=m.data)
+minimalSet <- ExpressionSet(assayData=as.matrix(norm.counts), phenoData = phenoData)
+diffExprs <- splineDiffExprs(eSetObject = minimalSet, df = 7, cutoff.adj.pVal = 0.01,
+                             reference = "MALE", intercept = TRUE)
+
+write.csv(diffExprs, file = "./out_files/07diffExp_males_females.csv")
+
+```
+
+
+
+# SessionInfo
+
+```{r sessioninfo}
+sessionInfo()
+```
+
+# Time
+
+```{r endtime}
+# output time taken to run script
+end_tm <- Sys.time()
+end_tm
+end_tm - start_tm
+
+```
