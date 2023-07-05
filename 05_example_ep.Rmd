@@ -41,9 +41,9 @@ library(splineTimeR)
 # Continuous transcriptome analysis part 1; Identification of unfertilized eggs and embryos older than 3 h
 
 ```{r pseudotime_analysis1}
-library1 <-read.csv("GSM6599295_Sample1.STARsolo_raw.counts.txt", sep="\t", 
+library1 <-read.csv("sample1_counts.tsv", sep="\t", 
                     header=TRUE, row.names = 1)
-library2 <-read.csv("GSM6599296_Sample2.STARsolo_raw.counts.txt", sep="\t", 
+library2 <-read.csv("sample2_counts.tsv", sep="\t", 
                     header=TRUE, row.names = 1)
 data <- cbind(library1[,1:96], library2[,97:192])
 
