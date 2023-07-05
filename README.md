@@ -1,7 +1,7 @@
 # Code for Perez Mojica et al., 2023, STAR Protocols
 
 ## Prerequisites
-* Assumes a Linux or Mac environment and that you are working the terminal.
+* Assumes a Linux or Mac environment and that you are working in the terminal.
 * For other software requirements, see publication.
 
 ## Steps to reproduce results in paper
